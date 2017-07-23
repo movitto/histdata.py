@@ -9,15 +9,16 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # RAW data path
-RAW_DATA_PATH="../data/RAW"
-mkdir -p $RAW_DATA_PATH
+YEAR_PATH="../data/1m/year"
+MONTH_PATH="../data/1m/month"
+mkdir -p $YEAR_PATH $MONTH_PATH
 
 echo "Retrieving symbols"
 export ALL_SYMBOLS=$(`pwd`/symbols.sh)
 printf "${BLD}`wc -w <<< $ALL_SYMBOLS`${NC} symbols found\n"
 
 # override w/ specific symbols to retrieve
-#ALL_SYMBOLS=(USDJPY EURAUD)
+#ALL_SYMBOLS=(USDJPY)
 
 echo "Downloading missing data"
 
@@ -27,7 +28,7 @@ for s in $ALL_SYMBOLS; do
     	if [ $y == $(date +%Y) ]; then
     		# download each month
     		for m in `seq 1 $(date +%m)`; do
-    			FILE="$RAW_DATA_PATH/${s}_${y}`printf "%02d\n" ${m}`.csv"
+    			FILE="$MONTH_PATH/${s}_${y}`printf "%02d\n" ${m}`.csv"
 
     			# always retrieve the current month
     			if [[ "$m" -eq $(date +%m | sed 's/^0*//') ]]; then
@@ -45,7 +46,7 @@ for s in $ALL_SYMBOLS; do
 
       else
       	# download a single year
-	      FILE="$RAW_DATA_PATH/${s}_${y}.csv"
+	      FILE="$YEAR_PATH/${s}_${y}.csv"
 	      if [[ -a $FILE ]]; then
 	      	printf "${RED}File $FILE exists${NC}, skipping...\n"
 
@@ -64,25 +65,34 @@ done
 
 printf "${BLD}Download complete${NC}, inflating all targets\n"
 
-# Unzip everything
-unzip -qq -u \*.zip 2> /dev/null
+inflate_and_clean(){
+  tgt_path=$1
 
-printf "${BLD}Inflation complete${NC}, cleaning up\n"
+  # Unzip everything
+  unzip -qq -u \*.zip 2> /dev/null
 
-# delete zip files
-rm -rf *.zip 2> /dev/null
+  # delete zip files
+  rm -rf *.zip 2> /dev/null
 
-# delete gap files
-# TODO incoropate this in output
-rm -rf *.txt  2> /dev/null
+  # delete gap files
+  # TODO incoropate this in output
+  rm -rf *.txt  2> /dev/null
 
-# move data we care about
-mv -f *.csv $RAW_DATA_PATH/ 2> /dev/null
+  # change names using sed
+  for file in *.csv; do mv $file $(echo $file | sed -e 's/^DAT_MS_//') 2> /dev/null; done
+  for file in *.csv; do mv $file $(echo $file | sed -e 's/_M1_/_/')    2> /dev/null; done
 
-# change names using sed
-cd $RAW_DATA_PATH
-for file in *.csv; do mv $file $(echo $file | sed -e 's/^DAT_MS_//') 2> /dev/null; done
-for file in *.csv; do mv $file $(echo $file | sed -e 's/_M1_/_/') 2> /dev/null; done
+  # move data we care about
+  mv -f *.csv $tgt_path 2> /dev/null
+}
+
+cd year/
+inflate_and_clean "../$YEAR_PATH"
+
+cd ../month/
+inflate_and_clean "../$MONTH_PATH"
+
+cd ..
 
 # Fin!
 printf "\n${GRN}FIN!${NC}\n"

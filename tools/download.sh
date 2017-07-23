@@ -32,10 +32,12 @@ while test $# -gt 0; do
                         ;;
         esac
 done
+
 if [[ -z "$SYMBOL" ]]; then
     echo "Symbol not set"
     exit 1
 fi
+
 if [[ -z "$YEAR" ]]; then
     echo "Year not set"
     exit 2
@@ -47,9 +49,14 @@ export TK_URL="http://www.histdata.com/download-free-forex-historical-data/?/met
 if [[ -z "$MONTH" ]]; then
     # no month, use the year-based scheme
     export MONTH=""
+    export FILE_PATH="year/$SYMBOL-$YEAR.zip"
+    mkdir -p year/
+
 else
     export MONTH=`printf "%02d\n" ${MONTH}`
     export TK_URL="http://www.histdata.com/download-free-forex-historical-data/?/metastock/1-minute-bar-quotes/${SYMBOL}/${YEAR}/${MONTH}"
+    export FILE_PATH="month/$SYMBOL-$YEAR-$MONTH.zip"
+    mkdir -p month/
 fi
 
 export TK=$(curl -s ${TK_URL} | grep "name=\"tk\"" | head -n 1 | sed -e "s/.* value=\"\(.*\)\".*/\1/")
@@ -59,7 +66,6 @@ if [[ -z "$TK" ]]; then
     exit 3
 fi
 
-export FILE_PATH="output-$SYMBOL-$YEAR-$MONTH.zip"
 export PAYLOAD="tk=$TK&date=$YEAR&datemonth=$YEAR$MONTH&platform=MS&timeframe=M1&fxpair=$SYMBOL"
 
 curl 'http://www.histdata.com/get.php' \

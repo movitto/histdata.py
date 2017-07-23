@@ -4,76 +4,56 @@ import os, sys
 import re
 import csv
 import datetime
-import pandas
 import calendar
 
-RAW_DIR   = os.path.join(os.getcwd(), "../data/RAW/")
-DAY_DIR   = os.path.join(os.getcwd(), "../data/daily/")
-MONTH_DIR = os.path.join(os.getcwd(), "../data/month/")
-YEAR_DIR  = os.path.join(os.getcwd(), "../data/year/")
+from common import pandas_data_cols, pandas_data
+
+DAY_DIR   = os.path.join(os.getcwd(), "../data/1m/daily/")
+MONTH_DIR = os.path.join(os.getcwd(), "../data/1m/month/")
+YEAR_DIR  = os.path.join(os.getcwd(), "../data/1m/year/")
 
 # Create required dirs
-os.makedirs(DAY_DIR, exist_ok=True)
+os.makedirs(DAY_DIR,   exist_ok=True)
 os.makedirs(MONTH_DIR, exist_ok=True)
-os.makedirs(YEAR_DIR, exist_ok=True)
+os.makedirs(YEAR_DIR,  exist_ok=True)
 
 RAW_DATA = {}
 
-# First link existing year / month targets to corresponding dirs
-# Also accumuilate raw dirs
-for raw in os.listdir(RAW_DIR):
-    src_file = os.path.join("../RAW", raw)
-
-    match = re.search(r"([A-Z]+)_([0-9]+).csv", raw)
-    sze   = os.stat(os.path.join(RAW_DIR, raw)).st_size
+# First collect which years we have
+for year in os.listdir(YEAR_DIR):
+    match = re.search(r"([A-Z]+)_([0-9]+).csv", year)
+    sze   = os.stat(os.path.join(YEAR_DIR, year)).st_size
     if match and sze > 0:
         sym   = match.group(1)
-        year  = match.group(2)
-        month = None
+        year  = int(match.group(2))
 
         if sym not in RAW_DATA:
             RAW_DATA[sym] = {}
 
-        if len(year) > 4:
-            month = int(year[4:6])
-            year  = int(year[0:4])
-        else:
-            year  = int(year)
+        if year not in RAW_DATA[sym]:
+            RAW_DATA[sym][year] = []
+
+# Then track months
+for year in os.listdir(MONTH_DIR):
+    match = re.search(r"([A-Z]+)_([0-9]+).csv", year)
+    sze   = os.stat(os.path.join(MONTH_DIR, year)).st_size
+    if match and sze > 0:
+        sym   = match.group(1)
+        year  = match.group(2)
+
+        month = int(year[4:6])
+        year  = int(year[0:4])
+
+        if sym not in RAW_DATA:
+            RAW_DATA[sym] = {}
 
         if year not in RAW_DATA[sym]:
             RAW_DATA[sym][year] = []
 
-        if month is not None:
+        if month not in RAW_DATA[sym][year]:
             RAW_DATA[sym][year].append(month)
 
-            tgt_link = os.path.join(MONTH_DIR, raw)
-            if not os.path.isfile(tgt_link):
-              os.symlink(src_file, tgt_link)
-
-        else:
-            tgt_link = os.path.join(YEAR_DIR, raw)
-            if not os.path.isfile(tgt_link):
-              os.symlink(src_file, tgt_link)
-
-data_cols = ['Symbol', 'Time', 'Open', 'High', 'Low', 'Close', 'Volume']
-
-# Helper to extract dataframe via pandas
-def pandas_data(fle):
-    data = pandas.read_csv(fle, sep=',',
-                                header=0,
-                                names=data_cols,
-                                dtype={'Time':str})
-
-    def conv_time(x):
-      return datetime.datetime.strptime(x, "%Y%m%d%H%M")
-
-    data['DateTime'] = data['Time'].apply(conv_time)
-    data = data.set_index(pandas.DatetimeIndex(data['DateTime']))
-
-    return data
-
-
- Extract individual months out of years
+# Extract individual months out of years
 for sym, year_months in RAW_DATA.items():
     for year, months in year_months.items():
         # skip current year
@@ -96,7 +76,7 @@ for sym, year_months in RAW_DATA.items():
                 tgt = os.path.join(MONTH_DIR, "{sym}_{year}{month}.csv".format(sym=sym, year=year, month=pm))
                 start = "{year}-{month}-1".format(year=year, month=m)
                 end   = "{year}-{month}-{day}".format(year=year, month=m, day=calendar.monthrange(year, m)[1])
-                year_data.loc[start:end].to_csv(tgt, columns = data_cols, index=False)
+                year_data.loc[start:end].to_csv(tgt, columns = pandas_data_cols, index=False)
 
 # Extract individual days out of months
 for mnth in os.listdir(MONTH_DIR):
@@ -120,7 +100,7 @@ for mnth in os.listdir(MONTH_DIR):
 
         dte = "{year}-{month}-{day}".format(year=year, month=month, day=day)
         try:
-          month_data.loc[dte].to_csv(tgt, columns = data_cols, index=False)
+          month_data.loc[dte].to_csv(tgt, columns = pandas_data_cols, index=False)
 
         # ignore error if date is not in data range
         except KeyError:

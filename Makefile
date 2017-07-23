@@ -1,6 +1,7 @@
 clean:
 	rm -rf data/
-	rm -rf tools/*.zip
+	rm -rf tools/year/*.zip
+	rm -rf tools/month/*.zip
 
 sync:
 	cd tools; ./sync.sh
@@ -11,5 +12,8 @@ split:
 groups:
 	cd tools; ./groups.py
 
-all: sync split groups
+extrapolate:
+	cd tools; ./extrapolate.py
+
+all: sync split
 .PHONY: all
